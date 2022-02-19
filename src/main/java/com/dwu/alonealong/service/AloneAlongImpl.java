@@ -3,6 +3,7 @@ package com.dwu.alonealong.service;
 import lombok.Builder;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataAccessException;
@@ -30,8 +31,13 @@ import com.dwu.alonealong.domain.Food;
 import com.dwu.alonealong.domain.FoodCart;
 import com.dwu.alonealong.domain.FoodCartItem;
 import com.dwu.alonealong.domain.FoodLineItem;
+import com.dwu.alonealong.domain.FoodLineItemRepository;
 import com.dwu.alonealong.domain.FoodOrder;
+import com.dwu.alonealong.domain.FoodOrderInfoRepository;
+import com.dwu.alonealong.domain.FoodOrderRepository;
+import com.dwu.alonealong.domain.FoodRepository;
 import com.dwu.alonealong.domain.FoodReview;
+import com.dwu.alonealong.domain.FoodReviewRepository;
 import com.dwu.alonealong.domain.Order;
 import com.dwu.alonealong.domain.Payment;
 import com.dwu.alonealong.domain.Product;
@@ -57,13 +63,23 @@ public class AloneAlongImpl implements AloneAlongFacade{
 	@Autowired
 	private FoodDAO foodDao;
 	@Autowired
+	private FoodRepository foodRepository;
+	@Autowired
 	private FoodLineItemDAO foodLineItemDao;
+	@Autowired
+	private FoodLineItemRepository foodLineItemRepository;
 	@Autowired
 	private FoodOrderDAO foodOrderDao;
 	@Autowired
+	private FoodOrderRepository foodOrderRepository;
+	@Autowired
 	private OrderInfoDAO orderInfoDao;
 	@Autowired
+	private FoodOrderInfoRepository orderInfoRepository; 
+	@Autowired
 	private FoodReviewDAO foodReviewDao;
+	@Autowired
+	private FoodReviewRepository foodReviewRepository;
 	
 	
     @Autowired
@@ -227,14 +243,14 @@ public class AloneAlongImpl implements AloneAlongFacade{
 	//Restaurant
 	@Override
 	public void insertRestaurant(Restaurant res) {
-		//Restaurant params = Restaurant.builder().resId()
-		restaurantRepository.save(res);
-		//restaurantDao.insertRestaurant(res);
+		//Restaurant params = Restaurant.builder().resId("10");
+		//restaurantRepository.save(res);
+		restaurantDao.insertRestaurant(res);
 	}
 	@Override
 	public void updateRestaurant(Restaurant res) {
-		restaurantRepository.save(res);
-		//restaurantDao.updateRestaurant(res);
+		//restaurantRepository.save(res);
+		restaurantDao.updateRestaurant(res);
 	}
 	@Override
 	public void deleteRestaurant(String ownerId) {
@@ -280,7 +296,8 @@ public class AloneAlongImpl implements AloneAlongFacade{
 	//Food
 	@Override
 	public List<Food> getFoodListByRestaurant(String resId) {
-		return foodDao.getFoodListByResId(resId);
+		return foodRepository.findByResId(resId);
+		//return foodDao.getFoodListByResId(resId);
 	}
 	@Override
 	public void insertFood(Food food) {
@@ -292,12 +309,14 @@ public class AloneAlongImpl implements AloneAlongFacade{
 	}
 	@Override
 	public void deleteFood(String foodId) {
-		foodDao.deleteFood(foodId);
+		foodRepository.deleteById(foodId);
+		//foodDao.deleteFood(foodId);
 	}
 	
 	@Override
 	public Food getFood(String foodId) {
-		return foodDao.getFood(foodId);
+		return foodRepository.findByFoodId(foodId);
+		//return foodDao.getFood(foodId);
 	}
 
 	//Food Order
@@ -315,6 +334,7 @@ public class AloneAlongImpl implements AloneAlongFacade{
 		//카트 item들 모두 넣기
 		for(FoodCartItem val : order.getFoodList()) {
 			FoodLineItem item = new FoodLineItem(newOrderId, val.getFood().getFoodId(), val.getQuantity(), val.getUnitPrice());
+			//foodLineItemRepository.save(item);
 			foodLineItemDao.insertFoodLineItem(item);
 		}
 		
@@ -322,14 +342,34 @@ public class AloneAlongImpl implements AloneAlongFacade{
 	public void deleteFoodOrder(String orderId) {
 		//orderinfo - foodorder - foodlineitme 종속삭제
 		orderInfoDao.deleteFoodOrderInfo(orderId);
+		//db반영이 너무 느린데..? redirect가 안돼 
+		//orderInfoRepository.deleteById(orderId);
 	}
 	@Override
 	public FoodOrder getFoodOrder(String orderId) {
 		// TODO Auto-generated method stub
-		return foodOrderDao.getFoodOrder(orderId);
+		//return foodOrderDao.getFoodOrder(orderId);
+		return foodOrderRepository.findByOrderId(orderId);
 	}
 	@Override
 	public List<FoodOrder> getFoodOrdersByUserId(String userId) {
+//		List<FoodOrder> orderList = orderInfoDao.getOrdersByUserId(userId);
+//		//조인써야함.....
+//		//List<FoodOrder> orderList = orderInfoRepository.findByUserId(userId);
+//		for(FoodOrder order : orderList) {
+//			List<FoodLineItem> orderedItemList = foodLineItemDao.getFoodLineItemByOrderId(order.getOrderId());
+//			//resultset오류 mapper확인요망List<FoodLineItem> orderedItemList = foodLineItemRepository.findByOrderId(order.getOrderId());
+//			for(FoodLineItem orderedItem : orderedItemList) {
+//				String foodName = foodRepository.findByFoodId(orderedItem.getFoodId()).getName();
+//				//String foodName = foodDao.getFood(orderedItem.getFoodId()).getName();
+//				orderedItem.setFoodName(foodName);
+//			}
+//			order.setOrderedList(orderedItemList);
+//		}
+//		
+//		return orderList;
+		
+		
 		List<FoodOrder> orderList = orderInfoDao.getOrdersByUserId(userId);
 		for(FoodOrder order : orderList) {
 			List<FoodLineItem> orderedItemList = foodLineItemDao.getFoodLineItemByOrderId(order.getOrderId());
@@ -344,7 +384,15 @@ public class AloneAlongImpl implements AloneAlongFacade{
 	}
 	//FoodReview
 	public List<FoodReview> getFoodReviewListByResId(String resId, String sortType) {
-		return foodReviewDao.getFoodReviewListByResId(resId, sortType);
+		if(sortType.equals("REVIEW_DATE DESC")) {
+			return foodReviewRepository.findByResIdOrderByReviewDateDesc(resId);
+		}else if(sortType.equals("REVIEW_RATING DESC")) {
+			return foodReviewRepository.findByResIdOrderByRatingDesc(resId);
+		}else if(sortType.equals("REVIEW_RATING")) {
+			return foodReviewRepository.findByResIdOrderByRatingAsc(resId);
+		}
+		return null;
+		//return foodReviewDao.getFoodReviewListByResId(resId, sortType);
 	}
 	
 	public void insertFoodReview(FoodReview foodReview) {
